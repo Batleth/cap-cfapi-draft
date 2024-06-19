@@ -1,0 +1,52 @@
+---
+_schema-version: '3.1'
+ID: cfapi
+version: 1.0.0
+description: "A simple CAP project."
+parameters:
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - npm ci
+        - npx cds build --production
+modules:
+  - name: cfapi-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      buildpack: nodejs_buildpack
+      readiness-health-check-type: http
+      readiness-health-check-http-endpoint: /health
+    build-parameters:
+      builder: npm
+    provides:
+      - name: srv-api # required by consumers of CAP services (e.g. approuter)
+        properties:
+          srv-url: ${default-url}
+    requires:
+      - name: cfapi-destination
+resources:
+  - name: cfapi-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        version: 1.0.0
+        HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            existing_destination_policy: update
+            destinations:
+              - Name: cfapi
+                Type: HTTP
+                Authentication: OAuth2Password
+                ProxyType: Internet
+                URL: https://api.cf.eu10.hana.ondemand.com
+                tokenServiceURL: https://login.cf.eu10.hana.ondemand.com/oauth/token
+                clientId: cf
+                clientSecret:
+                User: Admin
+                Password: Test
+      service: destination
+      service-plan: lite
